@@ -1,0 +1,16 @@
+random_seed: 42
+max_rows: null
+candidate_models: [LightGBM, XGBoost, CatBoost]
+cross_validation:
+  outer_folds: 5
+  inner_folds: 3
+optuna:
+  trials: 8
+  timeout_seconds: null
+output:
+  save_oof_predictions: false
+  save_model: false
+  generate_figures: true
+top_fractions: [0.05, 0.10, 0.20, 0.30]
+shap_sample_size: 2500
+bootstrap_iterations: 1000
