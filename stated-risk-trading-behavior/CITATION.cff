@@ -1,0 +1,17 @@
+cff-version: 1.2.0
+title: "Stated or Revealed Risk? Reproducibility Package"
+message: "Please cite both the paper and this repository when reusing the code or derived research outputs."
+type: software
+authors:
+  - family-names: Park
+    given-names: Dongha
+year: 2026
+license: MIT
+repository-code: "https://github.com/Ha-minss/papers/tree/main/stated-risk-trading-behavior"
+preferred-citation:
+  type: article
+  title: "Stated or Revealed Risk? Out-of-Time Prediction of Retail Investor Trading after Extreme Negative Returns"
+  authors:
+    - family-names: Park
+      given-names: Dongha
+  year: 2026

@@ -1,0 +1,4 @@
+source,authority,coverage,url,acquisition_status
+Bank of Greece - Share price indices of the Athens Exchange,Official central-bank publication; underlying source Athens Exchange,Historic January 2001-December 2023 plus January 2022 onward,https://www.bankofgreece.gr/en/statistics/financial-markets-and-interest-rates/share-price-indices-of-the-athens-exchange,Metadata and document availability verified; binary daily workbook could not be retrieved in the isolated runtime
+ATHEX Composite Share Price Index (GD),Official Athens Exchange index page,Current methodology and identity (ISIN GRI99117A004),https://www.athexgroup.gr/en/market-data/indices/athex-composite-share-price-index,Index identity verified; historical binary time series not retrievable in isolated runtime
+FAR-Trans XATH cross-section,Study dataset,2018-2022 daily closing prices,local:data/close_prices.csv,"Used for median, equal-weight mean, trimmed mean and winsorized-mean proxy validation"

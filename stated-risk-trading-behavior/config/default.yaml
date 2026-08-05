@@ -1,0 +1,17 @@
+event:
+  raw_return_threshold: -0.05
+  abnormal_return_quantile: 0.01
+  estimation_window_start: 260
+  estimation_window_end: 11
+  minimum_estimation_observations: 200
+  cooldown_trading_days: 20
+response:
+  primary_window_days: 5
+  robustness_windows: [1, 10, 20]
+split:
+  training_years: [2019, 2020]
+  validation_year: 2021
+  test_year: 2022
+validation:
+  event_block_bootstrap_draws: 300
+  random_seed: 42

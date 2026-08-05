@@ -1,0 +1,15 @@
+stage,count
+Raw customers,29090
+Raw transactions,388048
+Raw assets,806
+XATH stocks,194
+Price-eligible XATH stocks,134
+Mass/Premium customers with observed questionnaire risk,20412
+Clean actual XATH stock transactions,166516
+Detected extreme-return events before exposure filters,611
+Unique events in final analysis sample,552
+Final customer-event-stock exposures,35424
+Unique customers in final sample,5492
+Action responses (5d),2482
+Buys (5d),1420
+Sells (5d),1062
