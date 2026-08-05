@@ -1,0 +1,19 @@
+cff-version: 1.2.0
+title: "SME Bankruptcy Generalization Experiments"
+message: "If you use this implementation, please cite the repository."
+type: software
+authors:
+  - family-names: Park
+    given-names: Dongha
+    orcid: "https://orcid.org/0009-0006-0214-7163"
+    email: u795040f@alumni.osaka-u.ac.jp
+repository-code: "https://github.com/Ha-minss/Projects/tree/main/sme-bankruptcy-generalization"
+license: MIT
+version: 1.0.0
+date-released: 2026-08-06
+keywords:
+  - bankruptcy prediction
+  - temporal validation
+  - class imbalance
+  - partial pooling
+  - SME credit risk
