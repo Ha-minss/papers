@@ -1,0 +1,33 @@
+seed: 20260730
+post_analysis_seed: 20260802
+bootstrap_iterations: 1000
+max_length: 512
+rrf_k: 60
+candidate_count: 100
+rerank_k_values: [20, 50, 100]
+qwen_query_instruction: >-
+  Given a job posting, retrieve resumes of candidates who are suitable for the role
+  based on job function, skills, work experience, education, industry, location, and salary requirements.
+models:
+  chinese_dense: richinfoai/ritrieve_zh_v1
+  qwen_embedding: Qwen/Qwen3-Embedding-0.6B
+  gte_reranker: Alibaba-NLP/gte-multilingual-reranker-base
+  qwen_reranker: Qwen/Qwen3-Reranker-0.6B
+batch_sizes:
+  chinese_dense: 64
+  qwen_embedding: 32
+  gte_reranker: 32
+  qwen_reranker: 8
+paths:
+  data_bundle: data/aliyun_zhaopin_preprocessed_bundle_v2.zip
+  artifact_dir: artifacts/full_experiment
+training:
+  pointwise_epochs: 3
+  pairwise_epochs: 3
+  preservation_epochs: 3
+  learning_rate: 2.0e-5
+  batch_size: 8
+  gradient_accumulation: 4
+  warmup_ratio: 0.1
+  distill_weight: 1.0
+  max_general_drop: 0.01
