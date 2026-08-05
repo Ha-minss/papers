@@ -7,31 +7,32 @@ import yaml
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def test_required_code_files_exist() -> None:
+def test_required_top_level_items() -> None:
     required = [
-        "analysis/run_analysis.py",
-        "analysis/run_external_validations.py",
-        "analysis/run_robustness.py",
-        "scripts/01_build_dataset.py",
-        "scripts/02_run_primary_analysis.py",
-        "scripts/03_run_robustness.py",
-        "scripts/04_run_external_validation.py",
-        "scripts/05_generate_outputs.py",
+        "README.md",
+        "requirements.txt",
+        "Makefile",
+        "LICENSE",
+        "CITATION.cff",
+        "config",
+        "scripts",
+        "tests",
     ]
     missing = [path for path in required if not (ROOT / path).exists()]
     assert missing == []
 
 
-def test_generated_outputs_are_not_committed() -> None:
-    generated = [
+def test_unwanted_directories_are_absent() -> None:
+    unwanted = [
+        "analysis",
+        "docs",
+        "data",
         "paper",
         "figures_final",
         "results_final",
         "results_external",
-        "data/derived",
-        "data/external",
     ]
-    present = [path for path in generated if (ROOT / path).exists()]
+    present = [path for path in unwanted if (ROOT / path).exists()]
     assert present == []
 
 

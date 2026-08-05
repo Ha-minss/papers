@@ -2,22 +2,19 @@
 
 Code repository for **Stated or Revealed Risk? Out-of-Time Prediction of Retail Investor Trading after Extreme Negative Returns**.
 
-This repository contains the implementation used to build the research dataset, run the primary analysis, run robustness checks, and perform external-validation screens. It intentionally does not commit generated result tables, figures, manuscript files, or derived datasets.
+This repository keeps only the implementation needed to reproduce the analysis workflow. Generated datasets, result tables, figures, notebooks, and manuscript files are intentionally not committed.
 
 ## Repository Map
 
 ```text
-analysis/     Analysis implementation modules and helper scripts
 config/       Research settings
-data/         Data layout notes; raw and derived data are not committed
-docs/         Research design, validation notes, and novelty documentation
-scripts/      Numbered command-line entry points
+scripts/      Analysis and reproduction scripts
 tests/        Lightweight repository and configuration checks
 ```
 
 ## Data
 
-The raw FAR-Trans archive is not redistributed. Obtain the source data from its original publisher and keep the original CC BY 4.0 attribution.
+The raw FAR-Trans archive is not redistributed. Obtain the source data from its original publisher and keep the original attribution and license terms.
 
 Expected raw files:
 
@@ -29,7 +26,7 @@ close_prices.csv
 markets.csv
 ```
 
-Place them in `data/raw/FAR-Trans/`, set `FAR_TRANS_DATA_DIR`, or pass `--data-dir` to the numbered scripts. Derived datasets and result tables should be regenerated locally.
+Pass the raw-data location with `--data-dir` or set `FAR_TRANS_DATA_DIR`. Generated data and outputs should be written locally and kept out of Git.
 
 ## Environment
 
@@ -87,8 +84,8 @@ make check
 make test
 ```
 
-These checks validate repository structure and configuration. They do not require the raw data archive or generated outputs.
+These checks validate the code-only repository structure and configuration. They do not require raw data or generated outputs.
 
 ## License
 
-Code is released under the MIT License. Data attribution and redistribution notes are described in `DATA_LICENSE.md`.
+Code is released under the MIT License. Citation metadata is provided in `CITATION.cff`.
