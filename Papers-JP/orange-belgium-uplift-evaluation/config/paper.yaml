@@ -1,0 +1,73 @@
+random_seed: 42
+max_rows: null
+risk_models: [Logistic, LightGBM, XGBoost, CatBoost]
+uplift_models:
+  - Risk_XGBoost
+  - T_XGBoost
+  - TO_XGBoost
+  - DR_XGBoost
+  - T_RandomForest
+  - TO_RandomForest
+risk_model_parameters:
+  LightGBM:
+    learning_rate: 0.021887439425976252
+    num_leaves: 30
+    max_depth: 7
+    min_child_samples: 129
+    subsample: 0.8261534422933426
+    colsample_bytree: 0.6841852399022343
+    reg_alpha: 0.08768125777016172
+    reg_lambda: 0.046021703974597504
+  XGBoost:
+    learning_rate: 0.03513049653867429
+    max_depth: 6
+    min_child_weight: 19.978808992275813
+    subsample: 0.8996646210492591
+    colsample_bytree: 0.7046065241548528
+    gamma: 0.3899863008405066
+    reg_alpha: 0.00017775399007348227
+    reg_lambda: 4.88310591478166
+  CatBoost:
+    learning_rate: 0.0735914047804502
+    depth: 6
+    l2_leaf_reg: 5.809498538661968
+    random_strength: 0.10685033500506824
+    bagging_temperature: 2.4247746304049858
+    border_count: 64
+t_xgboost_parameters:
+  n_estimators: 371
+  learning_rate: 0.01997819627241509
+  max_depth: 3
+  min_child_weight: 79.88264302101751
+  subsample: 0.8045679118611637
+  colsample_bytree: 0.8299360666559304
+  gamma: 4.217075115009047
+  reg_alpha: 0.15101375536543646
+  reg_lambda: 0.5645181073420262
+tune_t_xgboost: false
+cross_validation:
+  folds: 5
+  tuning_folds: 3
+  repeated_seeds: [17, 42, 73]
+optuna:
+  trials: 24
+  stability_penalty: 0.25
+  timeout_seconds: null
+economics:
+  break_even_contact_cost: 30
+  scenarios:
+    Conservative:
+      contact_cost: 20
+      saved_customer_value: 200
+    Base:
+      contact_cost: 30
+      saved_customer_value: 500
+    Upside:
+      contact_cost: 50
+      saved_customer_value: 1000
+output:
+  save_row_level_scores: false
+  generate_figures: true
+top_fractions: [0.05, 0.10, 0.20, 0.30, 0.50, 1.00]
+near_constant_threshold: 0.999
+bootstrap_iterations: 600

@@ -1,0 +1,19 @@
+cff-version: 1.2.0
+message: "Please cite the manuscript and this software repository."
+title: "IBM Telco Value-Aware Churn Prioritization"
+type: software
+authors:
+  - family-names: Park
+    given-names: Dongha
+    orcid: "https://orcid.org/0009-0006-0214-7163"
+version: 1.0.0
+date-released: 2026-08-06
+license: MIT
+preferred-citation:
+  type: article
+  title: "Value-Aware Churn Prioritization Under Limited Retention Capacity"
+  authors:
+    - family-names: Park
+      given-names: Dongha
+      orcid: "https://orcid.org/0009-0006-0214-7163"
+  year: 2026

@@ -1,0 +1,9 @@
+{
+  "expected_csv_files": 32,
+  "expected_columns": 64,
+  "sectors": ["agriculture", "construction", "manufacture", "retail"],
+  "evaluation_years": [2013, 2014, 2015, 2016],
+  "delimiter": ";",
+  "decimal": ",",
+  "missing_values": ["NA"]
+}

@@ -1,0 +1,40 @@
+# Paths are resolved relative to this configuration file.
+data:
+  applications: ../data/raw/applications.tsv
+  users: ../data/raw/users.tsv
+  user_history: ../data/raw/user_history.tsv
+  test_users: ../data/raw/test_users.tsv
+  windows: ../data/raw/window_dates.tsv
+  job_archives: ../data/raw/jobs/*.zip
+
+paths:
+  workspace: ../workspace
+  artifacts: ../workspace/artifacts
+  cache: ../workspace/cache
+  paper_results: ../results/paper
+  paper_figures: ../paper/figures
+
+models:
+  content_encoder: Alibaba-NLP/gte-modernbert-base
+  title_encoder: TechWolf/JobBERT-v2
+
+runtime:
+  random_seed: 42
+  device: auto
+  output_dtype: float16
+  parameters:
+    content_max_length: 256
+    title_max_length: 64
+    content_batch_size: 64
+    title_batch_size: 128
+    query_batch_size: 128
+    candidate_top_k: 1000
+    recommendation_k: 200
+    evaluation_k: 10
+    itemknn_neighbors: 100
+    itemknn_search_k: 700
+    als_factors: 64
+    als_regularization: 0.03
+    als_alpha: 20.0
+    als_iterations: 15
+    bootstrap_repetitions: 1000

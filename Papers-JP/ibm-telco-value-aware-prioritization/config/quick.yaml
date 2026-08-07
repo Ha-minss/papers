@@ -1,0 +1,16 @@
+random_seed: 42
+max_rows: 900
+candidate_models: [XGBoost, CatBoost]
+cross_validation:
+  outer_folds: 2
+  inner_folds: 2
+optuna:
+  trials: 1
+  timeout_seconds: null
+output:
+  save_oof_predictions: false
+  save_model: false
+  generate_figures: true
+top_fractions: [0.10, 0.20]
+shap_sample_size: 300
+bootstrap_iterations: 50

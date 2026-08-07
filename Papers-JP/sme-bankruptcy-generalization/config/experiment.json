@@ -1,0 +1,17 @@
+{
+  "seed": 42,
+  "evaluation_years": [2014, 2015, 2016],
+  "feature_set": "candidate_60",
+  "models": ["logistic", "xgboost", "lightgbm"],
+  "preprocessing_modes": ["reference", "practical"],
+  "imbalance_methods": ["none", "class_weight", "random_under", "smote", "smoteenn"],
+  "smote_sampling_strategy": 0.10,
+  "cv_folds": 5,
+  "partial_pooling": {
+    "C": 0.10,
+    "C_grid": [0.10],
+    "interaction_scale_grid": [0.10, 0.25, 0.50],
+    "cv_folds": 5
+  },
+  "bootstrap_repetitions": 300
+}
