@@ -1,64 +1,351 @@
-﻿# Resume-Job Ranking Evaluation Audit
+# 採用ランキングモデルのオフライン評価は、実際の採用場面をどこまで反映するのか
 
-Code repository for **From Random Negatives to Recruiter Rejections: A Funnel-Aware Audit of Resume-Job Ranking Evaluation**.
+> **Candidate-Pool Construction and the Validity of Offline Evaluation in Resume-Job Ranking Systems**
+>
+> 採用ランキングモデルにおいて、評価時の候補者構成が
+> オフライン性能の解釈とモデル選択にどのような影響を与えるかを検証した研究です。
 
-This repository keeps the implementation for a resume-job ranking evaluation audit. Raw recruitment data, generated artifacts, score matrices, model checkpoints, figures, notebooks, and manuscript files are intentionally not committed.
+**主な技術:** BM25 / Dense Retrieval / Embedding / Cross-Encoder Reranker / RankNet / Cluster Bootstrap
 
-## Repository Map
+---
+
+## 目次
+
+1. [研究概要](#1-研究概要)
+2. [問題設定](#2-問題設定)
+3. [評価設計](#3-評価設計)
+4. [評価モデルと指標](#4-評価モデルと指標)
+5. [主な結果](#5-主な結果)
+6. [候補者数による感度分析](#6-候補者数による感度分析)
+7. [実応募者を用いた追加学習](#7-実応募者を用いた追加学習)
+8. [結果の解釈](#8-結果の解釈)
+9. [実務上の示唆](#9-実務上の示唆)
+10. [制約](#10-制約)
+11. [実行方法](#11-実行方法)
+12. [論文・実装](#12-論文実装)
+
+---
+
+## 1. 研究概要
+
+採用推薦・検索モデルのオフライン評価では、実際の応募者とランダムに抽出した候補者を比較する方法がよく用いられます。
+
+しかし、実際の採用プロセスで比較されるのは求人と無関係な履歴書ではなく、**同じ求人を閲覧したり、実際に応募した候補者同士**です。
+
+そこで本研究では、同じ求人とポジティブ応募者を固定したまま比較対象となる候補者だけを段階的に変更し、候補者構成によってランキング性能の意味がどのように変わるかを検証しました。
+
+主な研究課題は次の通りです。
+
+> **評価に用いる候補者を実際の採用プロセスに近づけたとき、ランキングモデルの性能とモデル間の順位はどのように変化するのか。**
+
+---
+
+## 2. 問題設定
+
+ランダム候補を用いる場合、モデルは「求人と関連性の高い履歴書」と「ほぼ無関係な履歴書」を識別すればよいため、高い性能を得やすくなります。
+
+一方、実際の採用では、すでに求人への関心や一定の適合性を持つ応募者の中から順位付けを行う必要があります。
+
+そのため、
+
+- 大規模な候補集合から関連候補を抽出する能力
+- 同一求人に応募した候補者間の細かな違いを識別する能力
+
+を同じオフライン指標で評価してよいのか、という点に着目しました。
+
+---
+
+## 3. 評価設計
+
+同一の **85件の求人とポジティブ応募者**を固定し、比較候補だけを以下の4段階に変更しました。
+
+| 候補群 | 定義 |
+|---|---|
+| ランダム候補 | 当該求人との観測された行動がない候補 |
+| 表示後・未閲覧 | 求人が表示されたが詳細を閲覧していない候補 |
+| 閲覧後・未応募 | 求人を閲覧したが応募していない候補 |
+| 応募後・不採用 | 同じ求人に実際に応募したが、ポジティブな結果を得なかった候補 |
+
+各求人・候補群について10個の固定サンプルを作成し、合計 **3,400件のペア比較**を構成しました。
+
+重要なのは、求人とポジティブ応募者を固定し、**比較候補だけを変更したこと**です。
+
+これにより、求人の難易度やポジティブ応募者の違いではなく、候補者構成そのものが評価結果に与える影響を確認しました。
+
+---
+
+## 4. 評価モデルと指標
+
+検索方式やモデル構造の違いによる影響を確認するため、BM25、Dense Retrieval、Embeddingモデル、Hybrid Retrieval、Cross-Encoder Rerankerを含む6種類のシステムを比較しました。
+
+主な評価指標には **Pairwise Accuracy** を使用しました。
+
+ポジティブ応募者のスコアが比較候補より高ければ正解とし、全比較に占める正解率を計算します。
+
+また、同じ求人から生成された10件の比較結果は独立ではありません。
+
+そのため、信頼区間の計算では個々の比較を独立に再抽出するのではなく、**求人単位のCluster Bootstrapを2,000回**実施しました。
+
+---
+
+## 5. 主な結果
+
+### 5.1 候補者が実際の応募者に近づくと性能が大きく低下
+
+ランダム候補では、6モデルのPairwise Accuracyは **83.65〜94.53%**でした。
+
+しかし、同じ求人に実際に応募し不採用となった候補者を比較対象にすると、性能は **48.00〜56.24%**まで低下しました。
+
+| 評価対象 | Pairwise Accuracy |
+|---|---:|
+| ランダム候補 | **83.65〜94.53%** |
+| 応募後・不採用候補 | **48.00〜56.24%** |
+
+モデルごとの性能低下は約 **27〜46ポイント**でした。
+
+つまり、特定モデルだけの問題ではなく、検索モデルからRerankerまで共通して大きな性能低下が確認されました。
+
+### 5.2 採用プロセスに沿った段階別評価
+
+Qwen3 Rerankerでは、比較候補を実際の応募者に近づけるほど性能が一貫して低下しました。
+
+| 比較候補 | Pairwise Accuracy |
+|---|---:|
+| ランダム | **93.12%** |
+| 表示後・未閲覧 | **60.12%** |
+| 閲覧後・未応募 | **50.88%** |
+| 応募後・不採用 | **48.12%** |
+
+ランダム候補では明確に区別できていた候補者間のスコア差も、実際の不採用応募者を比較対象にするとほぼ消失しました。
+
+---
+
+### 5.3 候補群によってモデル順位も変化
+
+候補群の違いは絶対的な性能だけでなく、**どのモデルを最良と判断するか**にも影響しました。
+
+ランダム候補で上位だったRerankerが、実際の不採用応募者を対象とした評価では同じ優位性を維持しませんでした。
+
+| 順位相関 | 値 |
+|---|---:|
+| Spearman | **−0.829** |
+| Kendall | **−0.733** |
+
+比較モデル数が6種類と少ないため探索的な結果ですが、候補者構成によってモデル選択そのものが変わる可能性を示しています。
+
+---
+
+## 6. 候補者数による感度分析
+
+候補者の種類だけでなく、**評価対象となる候補者数**による影響も検証しました。
+
+同一の2,843求人を固定し、ランダム候補者数のみを変更しました。
+
+| モデル | 10候補 | 100候補 |
+|---|---:|---:|
+| Qwen3 Reranker | **0.895** | **0.661** |
+| GTE Reranker | **0.902** | **0.651** |
+
+候補者数を10人から100人に増やすだけでも、NDCG@10は大きく低下しました。
+
+したがって、
+
+`NDCG@10 = 0.90`
+
+のように指標だけを報告するのではなく、**どのような候補者を何人用いて評価した値なのか**を明示する必要があります。
+
+---
+
+## 7. 実応募者を用いた追加学習
+
+次に、実際の不採用応募者を学習に利用すれば、実応募者間の識別性能を改善できるかを検証しました。
+
+### 7.1 Pointwise学習
+
+ポジティブ応募者を1、不採用応募者を0として学習しました。
+
+| モデル | 実応募者比較 | ランダム比較 | NDCG@10 |
+|---|---:|---:|---:|
+| 学習前 | 48.06% | **94.53%** | **.646** |
+| Pointwise学習後 | **53.29%** | 39.53% | .112 |
+
+実応募者の識別性能は改善した一方、従来の検索・ランキング性能が大きく低下しました。
+
+---
+
+### 7.2 RankNet
+
+同じ求人の中で、
+
+**ポジティブ応募者 > 不採用応募者**
+
+という相対的な順位を学習しました。
+
+| モデル | 実応募者比較 | ランダム比較 | NDCG@10 |
+|---|---:|---:|---:|
+| 学習前 | 50.69% | **92.75%** | **.622** |
+| RankNet学習後 | **54.71%** | 43.53% | .118 |
+
+こちらも実応募者の識別性能は改善しましたが、従来のランキング性能は大きく低下しました。
+
+---
+
+### 7.3 既存性能を保護した追加学習
+
+最後に、既存のランキング能力を維持しながら実応募者の識別性能を改善できるかを検証しました。
+
+モデル全体ではなく最後のEncoder BlockとClassification Headのみを更新し、既存モデルのスコア関係とパラメータから大きく離れないよう制約を加えました。
+
+| モデル | 実応募者比較 | ランダム比較 | NDCG@10 |
+|---|---:|---:|---:|
+| 学習前 | 50.69% | 92.75% | .622 |
+| 性能保持型学習 | **50.69%** | **92.70%** | **.621** |
+
+従来性能はほぼ維持できましたが、実応募者の識別性能は改善しませんでした。
+
+今回の実験では、
+
+> 実応募者間の識別を強く最適化すると既存の検索能力が低下し、  
+> 既存能力を強く保護すると実応募者間の識別性能が改善しない
+
+というトレードオフが確認されました。
+
+これは両方を同時に改善することが不可能という意味ではなく、**両者を同一のランキング能力として扱うことが適切ではない可能性**を示しています。
+
+---
+
+## 8. 結果の解釈
+
+ランダム候補を用いた評価自体が誤っているわけではありません。
+
+大量の履歴書から求人と関連する候補者を抽出する**検索・候補絞り込み能力**を評価する目的には適しています。
+
+一方、同一求人への実応募者を比較する評価は、すでに一定の関連性を持つ候補者間のより細かな識別能力を測ります。
+
+さらに、実際の採用結果には履歴書・求人票からは観測できない、
+
+- 面接結果
+- 希望給与
+- 入社可能時期
+- 応募タイミング
+- 採用人数
+- 社内方針
+
+なども影響します。
+
+そのため、両者を単純に同じ問題の「簡単な評価」と「難しい評価」とみなすのではなく、**採用プロセスの異なる段階に必要な能力として分けて評価すること**が重要です。
+
+---
+
+## 9. 実務上の示唆
+
+採用ランキングモデルのオフライン評価では、単一のAccuracyやNDCGだけではなく、以下の情報を併せて管理する必要があります。
+
+| 確認項目 | 目的 |
+|---|---|
+| 候補者の出所 | ランダム候補と実応募者では評価する能力が異なる |
+| 候補者数 | 候補者数自体がランキング指標に影響する |
+| 表示・閲覧・応募段階 | 行動段階によって評価難易度が変化する |
+| 実応募者間の評価 | 一般的な検索性能とは別に確認する |
+| 求人単位の不確実性 | 同一求人内の観測依存を考慮する |
+| 追加学習後の既存性能 | 特定指標の改善による性能崩壊を検知する |
+
+特に、ランダム候補で得られた高い性能を、そのまま**採用担当者の最終判断を再現する能力**として解釈しないことが重要です。
+
+---
+
+## 10. 制約
+
+本研究には以下の制約があります。
+
+- 採用結果は応募者の絶対的な能力や将来の職務成果を意味するものではありません。
+- 不採用結果には、履歴書・求人票から観測できない要因が含まれます。
+- 過去の採用結果には採用担当者や組織の判断バイアスが含まれる可能性があります。
+- 実応募者比較が可能だった求人は85件であり、信頼区間には一定の幅があります。
+- 単一の採用プラットフォーム・期間に基づく結果であり、他の採用市場への一般化には追加検証が必要です。
+
+したがって、本研究は自動採用判断の妥当性を示すものではなく、**オフライン評価設計そのものを監査するための研究**として位置付けています。
+
+---
+
+# 11. 実行方法
+
+本研究の再現コードは、英語版の研究リポジトリで公開しています。
+
+## 11.1 リポジトリ構成
 
 ```text
-configs/       Experiment configuration
-scripts/       Command-line entry points
-src/shore/     Reusable ranking, adaptation, statistics, and workflow code
-tests/         Lightweight unit and workflow tests
+configs/       実験設定
+scripts/       実験・再現用の実行スクリプト
+src/shore/     ランキング、追加学習、統計処理、ワークフロー
+tests/         単体テスト・ワークフローテスト
 ```
 
-## Install
+---
 
-CPU/test environment:
+## 11.2 環境構築
+
+### Linux / macOS
 
 ```bash
 python -m venv .venv
 source .venv/bin/activate
+
 python -m pip install --upgrade pip
 python -m pip install -e ".[test]"
 ```
 
-On Windows PowerShell:
+### Windows PowerShell
 
 ```powershell
+python -m venv .venv
 .venv\Scripts\Activate.ps1
+
 python -m pip install --upgrade pip
 python -m pip install -e ".[test]"
 ```
 
-GPU experiment environment:
+GPUを使用して実験を再実行する場合：
 
 ```bash
 python -m pip install -e ".[gpu,test]"
 ```
 
-## Data and Artifacts
+---
 
-Raw recruitment data and personally identifying resume text are not redistributed. Keep authorized data bundles and generated artifacts outside Git. Configure their locations in `configs/full_experiment.yaml`.
+## 11.3 データ設定
 
-Typical local-only paths:
+元の採用データおよび個人を識別し得る履歴書テキストは、GitHub上では再配布していません。
+
+認可されたデータと生成物の保存先を以下の設定ファイルで指定します。
+
+```text
+configs/full_experiment.yaml
+```
+
+ローカルでの配置例：
 
 ```text
 ../shore-data/aliyun_zhaopin_preprocessed_bundle_v2.zip
 ../shore-artifacts/full_experiment/
 ```
 
-## Run
+---
 
-Complete experiment:
+## 11.4 全実験の実行
 
 ```bash
 python scripts/run_full_experiment.py \
   --config configs/full_experiment.yaml
 ```
 
-Selected stages:
+データ準備から各ランキングモデルの評価まで、設定ファイルに基づいて一連の実験を実行します。
+
+---
+
+## 11.5 一部の実験のみ実行
+
+必要な処理だけを指定して実行することもできます。
 
 ```bash
 python scripts/run_full_experiment.py \
@@ -66,7 +353,13 @@ python scripts/run_full_experiment.py \
   --stages prepare_data run_bm25 run_qwen_embedding run_hybrid_rrf
 ```
 
-CPU-only paper-table reproduction from a local artifact release:
+これにより、全実験を毎回実行せず、特定のモデルや処理段階のみを再実行できます。
+
+---
+
+## 11.6 論文表の再現
+
+すでに生成されたローカルの実験成果物がある場合、GPUモデルを再実行せずに論文中の表を再生成できます。
 
 ```bash
 python scripts/reproduce_paper.py \
@@ -74,21 +367,55 @@ python scripts/reproduce_paper.py \
   --output-dir ../shore-artifacts/reproduced
 ```
 
-Generated outputs should stay local and out of Git.
+生成されたスコア、表、図などの成果物はGitにはコミットせず、ローカルで管理する設計としています。
 
-## Tests
+---
 
-The unit suite uses small deterministic fake encoders and scorers, so it does not download Hugging Face weights.
+## 11.7 テスト
+
+単体テストでは小規模な決定論的Fake Encoder / Scorerを使用するため、Hugging Faceのモデル重みをダウンロードせずに実行できます。
 
 ```bash
 pytest -q
+```
+
+ソースコードとスクリプトのコンパイル確認：
+
+```bash
 python -m compileall -q src scripts
 ```
 
-## Reproducibility Limits
+---
 
-GPU paths invoke the real Transformers and Sentence-Transformers APIs. Exact reproduction depends on the authorized data bundle, accessible model revisions, compatible CUDA/PyTorch builds, and sufficient GPU memory.
+## 11.8 再現性に関する注意
+
+GPU実験では実際のTransformersおよびSentence-Transformers APIを使用します。
+
+完全な再現には以下が必要です。
+
+- 認可された元データ
+- 対応するモデルRevisionへのアクセス
+- 互換性のあるCUDA / PyTorch環境
+- 十分なGPUメモリ
+
+個人情報を含む採用データ、生成済みのスコア行列、モデルCheckpoint、Notebook、論文原稿などはリポジトリには含めていません。
+
+---
+
+# 12. 論文・実装
+
+### 論文
+
+**Candidate-Pool Construction and the Validity of Offline Evaluation in Resume-Job Ranking Systems**
+
+[ResearchGateで論文を見る](https://www.researchgate.net/publication/411757259_Candidate-Pool_Construction_and_the_Validity_of_Offline_Evaluation_in_Resume-Job_Ranking_Systems)
+
+### 実装コード
+
+[GitHub - resume-ranking-evaluation-audit](https://github.com/Ha-minss/papers/tree/main/resume-ranking-evaluation-audit)
+
+---
 
 ## License
 
-Code is released under the MIT License.
+実装コードのライセンスについては、原リポジトリの `LICENSE` を参照してください。
