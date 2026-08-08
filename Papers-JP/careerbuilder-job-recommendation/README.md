@@ -1,76 +1,524 @@
-﻿# When Should Application History Be Trusted in Job Recommendation?
+# 求職者の応募履歴は、いつから推薦に活用すべきか
 
-Code repository for **When Should Application History Be Trusted in Job Recommendation?**
+> **When Should Application History Be Trusted in Job Recommendation?**
+>
+> 求職者のプロフィール・求人内容と、実際の応募履歴をどのように組み合わせるべきかを検証した求人推薦研究です。  
+> 特に、応募履歴の量や意味的な一貫性を用いて、ユーザーごとに行動情報の信頼度を調整できるかを分析しました。
 
-This repository keeps the implementation for a chronological job-recommendation study comparing profile/content signals with observed application behavior. Generated result tables, figures, manuscript files, notebooks, and raw data are intentionally not committed.
+**主な技術:** GTE / BM25 / Item-KNN / Implicit ALS / RRF / Logistic Regression / Temporal Evaluation
 
-## Repository Map
+---
+
+## 目次
+
+1. [研究概要](#1-研究概要)
+2. [問題設定](#2-問題設定)
+3. [データと評価設計](#3-データと評価設計)
+4. [コンテンツベース推薦](#4-コンテンツベース推薦)
+5. [行動ベース推薦](#5-行動ベース推薦)
+6. [コンテンツと行動の統合](#6-コンテンツと行動の統合)
+7. [応募履歴の意味的集中度](#7-応募履歴の意味的集中度)
+8. [個別重み付けの検証](#8-個別重み付けの検証)
+9. [結果の解釈](#9-結果の解釈)
+10. [実務上の示唆](#10-実務上の示唆)
+11. [制約](#11-制約)
+12. [実行方法](#12-実行方法)
+13. [論文・実装](#13-論文実装)
+
+---
+
+## 1. 研究概要
+
+求人推薦では、ユーザーの専攻・学歴・職歴と求人内容を照合する**コンテンツ情報**と、実際にどの求人へ応募したかという**行動情報**の両方を利用できます。
+
+応募履歴がほとんどないユーザーではコンテンツ情報が重要ですが、履歴が蓄積すると、実際の応募行動がより強い選好シグナルになる可能性があります。
+
+一方で、すべての応募履歴を同じように信頼してよいとは限りません。
+
+例えば、特定の職種に一貫して応募するユーザーと、複数の職種を探索しているユーザーでは、応募履歴の意味が異なる可能性があります。
+
+そこで本研究では、次の2点を検証しました。
+
+> **応募履歴を持つユーザーでは、行動ベース推薦はコンテンツベース推薦よりどの程度有効なのか。**
+
+> **応募回数と応募職種の意味的な一貫性を利用して、ユーザーごとに行動情報の重みを調整できるのか。**
+
+---
+
+## 2. 問題設定
+
+求人推薦における主要な課題の一つは、**ユーザーの明示的なプロフィールと実際の行動のどちらをどの程度信頼するか**です。
+
+プロフィール情報には職種、専攻、学歴、経験年数などが含まれますが、必ずしも現在の転職意向を完全には表しません。
+
+一方、応募履歴は実際の行動であるため強いシグナルになり得ますが、
+
+- 応募回数が少ない
+- 人気求人への応募に偏っている
+- 地域的な制約を受けている
+- 複数職種を探索している
+
+といった問題もあります。
+
+そのため、本研究では単純に「行動情報が強いか」だけでなく、**どの条件で行動情報を強く利用すべきか**まで検証しました。
+
+---
+
+## 3. データと評価設計
+
+CareerBuilder Job Recommendation Challengeの公開データを使用しました。
+
+データ規模は以下の通りです。
+
+| データ | 規模 |
+|---|---:|
+| ユーザー | 約 **389,000人** |
+| 応募イベント | 約 **1,603,000件** |
+| 求人データ | 約 **109万行** |
+| 評価期間 | 2012年4月〜7月 |
+
+未来情報の混入を防ぐため、評価は**時系列順**に行いました。
+
+各9日間の区間について、
+
+- 前半5日：ユーザー履歴を観測
+- 後半4日：実際の次の応募を評価
+
+という構成としました。
+
+推薦時点より未来の応募履歴は一切使用せず、その時点で実際に公開中の求人のみを推薦候補としました。
+
+また、すでに応募済みの求人は候補から除外しました。
+
+モデル選択と評価には、時間を前に進めながら検証するRolling Evaluationを使用しました。
+
+主要分析対象は、過去の応募履歴を **2件以上持つ13,924件のユーザー・時点観測**です。
+
+---
+
+## 4. コンテンツベース推薦
+
+コンテンツ推薦では、ユーザー情報と求人情報をテキストとして表現しました。
+
+ユーザー側には主に、
+
+- 過去に応募した求人タイトル
+- 専攻
+- 学位
+- 経験年数
+- 地域
+
+を使用しました。
+
+求人側には、
+
+- 求人タイトル
+- 応募要件
+
+を使用しました。
+
+BM25とGTE（`gte-modernbert-base`）を比較し、GTEではユーザーと求人を768次元のEmbeddingに変換してcosine similarityを計算しました。
+
+### 地域制約を加えた候補生成
+
+最初に、求人候補の地域範囲を変えて比較しました。
+
+| 候補生成方法 | Candidate Recall@1000 |
+|---|---:|
+| 全地域 GTE | **0.134** |
+| 同一州 GTE | **0.354** |
+| 市区町村優先・州補完 GTE | **0.471** |
+
+全米の求人をそのまま検索するよりも、ユーザーが実際に応募可能な地域に候補を制限することでCandidate Recallが大きく改善しました。
+
+最終的には、まず市区町村内の求人を優先し、候補が不足する場合に州単位まで広げる方式が、すべての評価区間で選択されました。
+
+この結果から、求人推薦では高度なモデルだけでなく、**ユーザーが実際に選択可能な求人集合を候補生成段階で正しく設計すること**が重要であると分かりました。
+
+---
+
+## 5. 行動ベース推薦
+
+行動ベース推薦では、ユーザーの過去の応募履歴からユーザー×求人のInteraction Matrixを作成しました。
+
+主なモデルには **Item-KNN** を使用しました。
+
+同じユーザー群が繰り返し応募する求人同士を近い求人とみなし、ユーザーが過去に応募した求人の近傍から次の候補を推薦します。
+
+求人間の類似度にはcosine similarityを用い、各求人について上位100件の近傍求人を使用しました。
+
+Implicit-feedback ALSも比較しましたが、最終的にはItem-KNNの方が高い性能を示しました。
+
+主要結果は以下の通りです。
+
+| 方法 | NDCG@10 | Recall@10 | MRR |
+|---|---:|---:|---:|
+| BM25 | .0054 | .0076 | .0074 |
+| 全地域 GTE | .0071 | .0102 | .0097 |
+| 地域化 GTE | **.0263** | **.0387** | **.0349** |
+| Item-KNN | **.1013** | **.1385** | **.1273** |
+
+過去の応募履歴が2件以上あるユーザーでは、Item-KNNがコンテンツベース推薦を大きく上回りました。
+
+つまり、一定量の履歴が存在する場合、**プロフィールに書かれている情報よりも、ユーザーが実際にどの求人へ応募したかという行動情報が次の応募を予測する強いシグナル**となりました。
+
+---
+
+## 6. コンテンツと行動の統合
+
+Item-KNNは精度面では強かった一方、推薦される求人が人気求人に集中する傾向がありました。
+
+| 方法 | Candidate Recall@1000 | Catalog Coverage@10 | 平均過去人気度 |
+|---|---:|---:|---:|
+| 全地域 GTE | .134 | .288 | 1.77 |
+| 地域化 GTE | .471 | .331 | 1.81 |
+| BM25 + 地域化 GTE | .402 | **.354** | 1.78 |
+| Item-KNN | **.489** | .270 | **16.95** |
+
+Item-KNNは高いCandidate Recallを示した一方、地域化GTEと比較して人気求人への集中が大きくなりました。
+
+そこで、行動情報だけを利用するのではなく、**コンテンツ推薦を一部残したHybrid推薦**を検証しました。
+
+GTEとItem-KNNではスコアの尺度が異なるため、原スコアを直接加算せず、**Weighted Reciprocal Rank Fusion（RRF）**を使用しました。
+
+行動情報の重みを25%、50%、75%で比較した結果、すべての評価区間で **行動75% + コンテンツ25%** が選択されました。
+
+| 方法 | NDCG@10 | Recall@10 | MRR |
+|---|---:|---:|---:|
+| 地域化 GTE | .0263 | .0387 | .0349 |
+| Item-KNN | .1013 | .1385 | .1273 |
+| 固定比率 Hybrid | **.1097** | **.1472** | **.1392** |
+
+固定比率HybridはItem-KNN単独と比較して、NDCG@10を約 **8.3%相対改善**しました。
+
+つまり、このデータでは行動情報が主な推薦シグナルでしたが、コンテンツ情報を完全に除くよりも、**補完的に残した方が最終ランキング性能も高くなりました。**
+
+---
+
+## 7. 応募履歴の意味的集中度
+
+次に、すべてのユーザーに同じ75:25の重みを適用するのではなく、**ユーザーごとに行動情報の信頼度を変えることができるか**を検証しました。
+
+そのために、過去に応募した求人が意味的にどの程度似ているかを表す「意味的集中度」を作成しました。
+
+過去に応募した求人をEmbeddingに変換し、求人ペア間のcosine similarityの平均を計算しました。
+
+集中度が高い場合は似た求人に繰り返し応募しており、低い場合は幅広い求人に応募していることを意味します。
+
+表現方法への依存性も確認するため、2種類のEmbeddingを使用しました。
+
+| 表現 | 対象 |
+|---|---|
+| GTE | 求人タイトル + 応募要件 |
+| JobBERT-v2 | 求人タイトルを中心とした職種表現 |
+
+当初の仮説は、
+
+> **応募回数が多く、応募した求人の意味的集中度も高いユーザーほど、行動履歴を強く信頼できるのではないか**
+
+というものでした。
+
+---
+
+## 8. 個別重み付けの検証
+
+Logistic Regressionを用いて、ユーザーごとに
+
+> **Item-KNNがコンテンツ推薦より高いNDCG@10を得る確率**
+
+を予測しました。
+
+その確率を、そのユーザーに対する行動ベース推薦の重みとしてRRFに利用しました。
+
+比較したモデルは、
+
+1. 応募回数のみ
+2. 応募回数 + GTE集中度
+3. 応募回数 + JobBERT-v2集中度
+
+の3種類です。
+
+### 8.1 集中度と行動モデルの優位性
+
+応募回数が増えるほどItem-KNNの相対的な優位性は概ね大きくなりました。
+
+一方、集中度との関係は一貫していませんでした。
+
+| 過去応募数 | Q1 | Q2 | Q3 | Q4 |
+|---|---:|---:|---:|---:|
+| 2 | .048 | .059 | .052 | .043 |
+| 3–4 | .064 | .060 | .080 | .053 |
+| 5–9 | .087 | .105 | .093 | .084 |
+| 10+ | .088 | .104 | .101 | **.115** |
+
+応募数が10件以上あるユーザーでは、集中度が高いグループで行動モデルの優位性が大きくなる傾向が見られました。
+
+しかし、応募数の少ないグループでは単調な関係は確認できませんでした。
+
+回帰分析でも結果はEmbeddingによって異なりました。
+
+| 表現 | 応募回数 × 集中度 | p-value |
+|---|---:|---:|
+| GTE | **0.2178** | **.0024** |
+| JobBERT-v2 | 0.0323 | .138 |
+
+また、モデルの説明力は **R²=.0087 / .0080** と低い値でした。
+
+したがって、意味的集中度と行動情報の有効性には一部の関連が見られたものの、**関係は弱く、使用するEmbeddingにも依存していました。**
+
+---
+
+### 8.2 個別重み付けは最終性能を改善しなかった
+
+最終的なランキング性能は以下の通りです。
+
+| 方法 | NDCG@10 |
+|---|---:|
+| 応募回数のみの個別重み付け | **.0924** |
+| GTE集中度を追加 | .0917 |
+| JobBERT-v2集中度を追加 | .0919 |
+| Item-KNN | .1013 |
+| 固定75:25 Hybrid | **.1097** |
+
+意味的集中度を追加したモデルは、応募回数のみを使った個別重み付けも上回りませんでした。
+
+さらに、すべての個別重み付け方式が固定75:25 Hybridを下回りました。
+
+GTE集中度を追加した場合、応募回数のみのモデルに対するNDCG差は **−0.000686**、JobBERT-v2では **−0.000446**で、paired bootstrapでも一貫したマイナスの差が確認されました。
+
+つまり、**より複雑な個別最適化を導入しても推薦性能は改善しませんでした。**
+
+---
+
+## 9. 結果の解釈
+
+意味的に似た求人へ繰り返し応募しているからといって、必ずしもそのユーザーの希望職種が明確であるとは限りません。
+
+応募履歴の集中は、
+
+- 特定職種への明確な志向
+- 人気求人への繰り返し露出
+- 地域的な選択肢の制約
+- プラットフォーム上の求人構成
+- Embeddingモデルの表現特性
+
+など、複数の要因から生じる可能性があります。
+
+また、異なる職種へ応募しているユーザーも、単に志向が不安定なのではなく、近接するキャリアを探索している可能性があります。
+
+一方、応募回数は単純な指標ですが、**協調フィルタリングに利用可能な行動情報がどれだけ蓄積しているか**を直接表します。
+
+そのため、本研究では応募履歴の量の方が、意味的集中度より安定した判断材料となりました。
+
+---
+
+## 10. 実務上の示唆
+
+本研究の結果から、求人推薦の基本方針は次のように整理できます。
+
+| ユーザー状態 | 推薦方針 |
+|---|---|
+| 応募履歴なし・極少 | 地域制約を考慮したコンテンツ推薦 |
+| 応募履歴が蓄積 | 行動ベース推薦の比重を高める |
+| 複数の応募履歴あり | 行動中心 + コンテンツによる補完 |
+| 集中度を用いた個別調整 | 追加検証なしで導入する根拠は弱い |
+
+Item-KNNは高いランキング性能を示しましたが、人気求人への集中も強くなりました。
+
+そのため、コンテンツ推薦を一定割合残すことには、
+
+- 行動モデルが拾いにくい求人の補完
+- 推薦対象の多様性確保
+- 人気求人への過度な集中の緩和
+
+という役割があります。
+
+また、固定比率Hybridはユーザーごとの追加モデルや集中度Feature Storeを必要とせず、すべての評価区間で同じ75:25が選択されました。
+
+したがって、本研究では**精度だけでなく実装・監視の単純さも含めて、固定比率Hybridが最も安定した構成**でした。
+
+---
+
+## 11. 制約
+
+本研究には以下の制約があります。
+
+- CareerBuilderの2012年データを使用しており、現在のリモートワークや職種体系とは差があります。
+- 応募はユーザーの関心を示しますが、採用成功・満足度・定着を意味するものではありません。
+- 公式の非公開テストラベルが利用できないため、内部の時系列分割で評価しています。
+- 地域化GTEでもCandidate Recall@1000は約47%であり、候補生成には改善余地があります。
+- 主要分析は過去の応募履歴が2件以上あるユーザーを対象としており、完全なCold Startには直接一般化できません。
+- 意味的集中度に関する回帰分析は観察データ上の関連性であり、因果関係を示すものではありません。
+
+特に、**「応募履歴2件以上なら常に75:25が最適」という意味ではありません。**
+
+2件という基準は意味的集中度を計算するために必要な最低履歴数であり、本研究の結果は主に履歴を持つユーザー群に対するものです。
+
+---
+
+# 12. 実行方法
+
+本研究の実装コードは、英語版の研究リポジトリで公開しています。
+
+## 12.1 リポジトリ構成
 
 ```text
-configs/        Portable YAML configuration
-src/careerrec/  Importable pipeline package and CLI
-tests/          Lightweight unit and repository checks
+configs/        YAML形式の実験設定
+src/careerrec/  推薦パイプライン本体とCLI
+tests/          単体テスト・リポジトリ検証
 ```
 
-## Data
+---
 
-Raw CareerBuilder Job Recommendation Challenge data are not redistributed. Put the raw files anywhere on your machine, copy `configs/default.yaml` to a local config file, and update the paths under `data:`.
+## 12.2 環境構築
 
-```bash
-cp configs/default.yaml configs/local.yaml
-python -m careerrec run --config configs/local.yaml
-```
+Python **3.10以上**を使用します。
 
-Generated workspaces, result tables, figures, and paper outputs should be written locally and kept out of Git.
-
-## Environment
-
-Python 3.10+ is supported.
+### Linux / macOS
 
 ```bash
 python -m venv .venv
 source .venv/bin/activate
+
 python -m pip install --upgrade pip
 python -m pip install --no-build-isolation -e ".[dev]"
 ```
 
-On Windows PowerShell:
+### Windows PowerShell
 
 ```powershell
+python -m venv .venv
 .venv\Scripts\Activate.ps1
+
 python -m pip install --upgrade pip
 python -m pip install --no-build-isolation -e ".[dev]"
 ```
 
-## Commands
+---
+
+## 12.3 データ設定
+
+CareerBuilder Job Recommendation ChallengeのRaw DataはGitHub上では再配布していません。
+
+まずデフォルト設定をコピーします。
+
+```bash
+cp configs/default.yaml configs/local.yaml
+```
+
+その後、`configs/local.yaml` の `data:` セクションに、自分の環境に保存したCareerBuilderデータへのパスを設定します。
+
+生成されるWorkspace、結果表、図、論文用成果物についてもGitにはコミットせず、ローカルに保存する設計です。
+
+---
+
+## 12.4 全パイプラインの実行
+
+設定後、以下のコマンドで一連の処理を実行できます。
+
+```bash
+python -m careerrec run --config configs/local.yaml
+```
+
+---
+
+## 12.5 処理段階ごとの実行
+
+パイプラインは段階別にも実行できます。
 
 ```bash
 python -m careerrec stage --config configs/local.yaml
+```
+
+```bash
 python -m careerrec prepare --config configs/local.yaml
+```
+
+```bash
 python -m careerrec semantic --config configs/local.yaml
+```
+
+```bash
 python -m careerrec evaluate --config configs/local.yaml
+```
+
+```bash
 python -m careerrec finalize --config configs/local.yaml
+```
+
+各処理を一括で実行する場合：
+
+```bash
 python -m careerrec run --config configs/local.yaml
+```
+
+リポジトリ構造や設定の検証：
+
+```bash
 python -m careerrec verify --root .
 ```
 
-With Make installed:
+---
+
+## 12.6 Makeを利用する場合
+
+Makeが利用できる環境では、以下のコマンドも使用できます。
 
 ```bash
 make test
+```
+
+```bash
 make verify
+```
+
+研究パイプラインの再現：
+
+```bash
 make reproduce CONFIG=configs/local.yaml
 ```
 
-## Check
+---
+
+## 12.7 テスト
 
 ```bash
 pytest
+```
+
+リポジトリと設定構造の確認：
+
+```bash
 python -m careerrec verify --root .
 ```
 
-These checks validate the code-only repository structure and configuration. They do not require raw data or generated outputs.
+これらの検証はコードと設定構造を対象としているため、Raw Dataや生成済みの実験成果物がなくても実行できます。
+
+---
+
+## 12.8 再現性に関する注意
+
+Raw CareerBuilderデータ、生成済みの結果表・図、Notebook、論文原稿はリポジトリには含めていません。
+
+そのため、完全な実験再現にはCareerBuilderの元データを別途用意し、`configs/local.yaml` に正しいパスを設定する必要があります。
+
+---
+
+# 13. 論文・実装
+
+### 論文
+
+**When Should Application History Be Trusted in Job Recommendation?**
+
+[ResearchGateで論文を見る](https://www.researchgate.net/publication/411115272_When_Should_Application_History_Be_Trusted_in_Job_Recommendation)
+
+### 実装コード
+
+[GitHub - careerbuilder-job-recommendation](https://github.com/Ha-minss/papers/tree/main/careerbuilder-job-recommendation)
+
+---
 
 ## License
 
-Code is released under the MIT License. Citation metadata are provided in `CITATION.cff`.
+実装コードはMIT Licenseで公開しています。  
+引用情報については、原リポジトリの `CITATION.cff` を参照してください。
