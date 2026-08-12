@@ -1,0 +1,10 @@
+cff-version: 1.2.0
+title: "Cross-Product Demand Dependence in Production Planning: Code Implementation"
+message: "If you use this software, please cite this repository."
+type: software
+authors:
+  - family-names: "Park"
+    given-names: "Dongha"
+license: MIT
+version: 1.0.0
+date-released: 2026-08-13

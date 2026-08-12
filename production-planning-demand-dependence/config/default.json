@@ -1,0 +1,25 @@
+{
+  "paths": {
+    "prepared_data_json": "../ijpe_local/data/tablet_data_extracted.json",
+    "results_root": "../ijpe_local/results"
+  },
+  "stage1": {
+    "seeds": 30,
+    "scenario_count": 20,
+    "horizon": 4,
+    "calibration_weeks": 20
+  },
+  "stage2": {
+    "alpha_grid": [0.0, 0.25, 0.5, 0.75, 1.0],
+    "seeds": 30,
+    "scenario_count": 20,
+    "horizon": 4,
+    "calibration_weeks": 20
+  },
+  "stage3": {
+    "seeds": 30,
+    "scenario_count": 100,
+    "calibration_weeks": 20,
+    "forecast_window": 8
+  }
+}
